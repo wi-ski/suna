@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  suna-backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV_MODE=local
+      - PORT=8000
+      - HOST=0.0.0.0
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=rabbitmq
+    env_file:
+      - .env
+    volumes:
+      - ./workspace:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  rabbitmq_data:
