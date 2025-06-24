@@ -1,24 +1,12 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
-import { config } from 'dotenv';
-import { DBConnection } from '@suna/agentpress';
 import { agentRoutes } from './routes/agent.js';
-import { sandboxRoutes } from './routes/sandbox.js';
-import { healthRoutes } from './routes/health.js';
-
-// Load environment variables
-config();
+import { toolRoutes } from './routes/tools.js';
 
 const fastify = Fastify({
   logger: {
-    level: process.env.LOG_LEVEL || 'info',
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true
-      }
-    }
+    level: process.env.LOG_LEVEL || 'info'
   }
 });
 
@@ -30,45 +18,19 @@ await fastify.register(cors, {
 
 await fastify.register(multipart);
 
-// Initialize database connection
-const db = DBConnection.getInstance();
-await db.initialize();
+// Health check
+fastify.get('/health', async (request, reply) => {
+  return { 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    implementation: 'TypeScript'
+  };
+});
 
 // Register routes
-await fastify.register(healthRoutes, { prefix: '/api' });
-await fastify.register(agentRoutes, { prefix: '/api' });
-await fastify.register(sandboxRoutes, { prefix: '/api' });
-
-// Global error handler
-fastify.setErrorHandler((error, request, reply) => {
-  fastify.log.error(error);
-  reply.status(500).send({
-    error: 'Internal Server Error',
-    message: error.message,
-    statusCode: 500
-  });
-});
-
-// Health check endpoint
-fastify.get('/api/health', async (request, reply) => {
-  try {
-    const dbHealthy = await db.testConnection();
-    return {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      database: dbHealthy ? 'connected' : 'disconnected',
-      version: '1.0.0'
-    };
-  } catch (error) {
-    reply.status(500);
-    return {
-      status: 'error',
-      timestamp: new Date().toISOString(),
-      database: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
-});
+await fastify.register(agentRoutes, { prefix: '/api/agent' });
+await fastify.register(toolRoutes, { prefix: '/api' });
 
 // Start server
 const start = async () => {
@@ -77,30 +39,14 @@ const start = async () => {
     const host = process.env.HOST || '0.0.0.0';
     
     await fastify.listen({ port, host });
-    fastify.log.info();
-    fastify.log.info('📋 Available endpoints:');
-    fastify.log.info('   GET  /api/health - Health check');
-    fastify.log.info('   POST /api/agent/run - Run agent');
-    fastify.log.info('   GET  /api/sandbox/status - Sandbox status');
+    console.log();
+    console.log();
+    console.log();
+    console.log();
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
   }
 };
-
-// Handle graceful shutdown
-process.on('SIGINT', async () => {
-  fastify.log.info('Received SIGINT, shutting down gracefully...');
-  await fastify.close();
-  await db.close();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  fastify.log.info('Received SIGTERM, shutting down gracefully...');
-  await fastify.close();
-  await db.close();
-  process.exit(0);
-});
 
 start();
