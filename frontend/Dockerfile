@@ -2,6 +2,18 @@
 # ---- Base Stage ----
 FROM node:22-slim AS base
 
+# Install Python and build tools needed for native modules like canvas
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    build-essential \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    librsvg2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies only when needed
 FROM base AS deps
 
